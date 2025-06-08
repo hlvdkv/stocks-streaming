@@ -10,6 +10,13 @@ kafka-topics.sh --bootstrap-server "$BOOTSTRAP" --delete --topic "$TOPIC" 2>/dev
 sleep 2
 kafka-topics.sh --bootstrap-server "$BOOTSTRAP" --create --topic "$TOPIC" --partitions 3 --replication-factor 1
 
-echo "[reset] Checkpoints & output"
-hdfs dfs -rm -r -f /stocks/output /stocks/checkpoints 2>/dev/null || true
+if [[ -n "${BUCKET:-}" ]]; then
+  echo "[reset] GCS gs://$BUCKET/stocks/{output,checkpoints}"
+  gsutil -m rm -r "gs://$BUCKET/stocks/output" \
+                  "gs://$BUCKET/stocks/checkpoints" 2>/dev/null || true
+else
+  echo "[reset] HDFS /stocks/{output,checkpoints}"
+  hdfs dfs -rm -r -f /stocks/output /stocks/checkpoints 2>/dev/null || true
+fi
+echo "[reset] Done."
 
