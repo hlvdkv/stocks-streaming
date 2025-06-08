@@ -1,6 +1,3 @@
-!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import csv, os, sys, time, argparse
 from pathlib import Path
 from typing import Iterable
