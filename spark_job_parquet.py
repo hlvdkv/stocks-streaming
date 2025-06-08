@@ -31,8 +31,11 @@ def args():
                    help="A = minimalne opóźnienie (update), C = tylko final (append)")
     p.add_argument("--bootstrap", default=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
     p.add_argument("--topic", default=os.getenv("KAFKA_TOPIC", "stocks-topic"))
-    p.add_argument("--output", default=os.getenv("OUTPUT_URI", "hdfs:///stocks/output"))
-    p.add_argument("--checkpoint", default=os.getenv("CHECKPOINT_URI", "hdfs:///stocks/checkpoints"))
+    bucket = os.getenv("BUCKET")
+    default_out = f"gs://{bucket}/stocks/output"      if bucket else "hdfs:///stocks/output"
+    default_chk = f"gs://{bucket}/stocks/checkpoints" if bucket else "hdfs:///stocks/checkpoints"
+    p.add_argument("--output",    default=os.getenv("OUTPUT_URI", default_out))
+    p.add_argument("--checkpoint", default=os.getenv("CHECKPOINT_URI", default_chk))
     return p.parse_args()
 
 def main() -> None:
@@ -67,9 +70,8 @@ def main() -> None:
 
     enriched = trades.join(meta, "Stock", "left")
 
-    # ---------- konfiguracja trybu A/C ----------
     watermark = "1 second" if a.delay == "A" else "7 days"
-    mode      = "update"   if a.delay == "A" else "append"
+    mode      = "append"
     trig_sec  = 5 if a.delay == "A" else 60
 
     bars = (enriched
