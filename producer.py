@@ -31,6 +31,7 @@ def main() -> None:
         linger_ms=5
     )
 
+
     try:
         for p in paths:
             print(f"[Producer] → {p.name}")

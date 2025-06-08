@@ -11,7 +11,6 @@ from pyspark.sql.types import (
 )
 from delta.tables import DeltaTable
 
-# ─── Schemat metadanych ─────────────────────────
 META_SCHEMA = StructType([
     StructField("NasdaqTraded",   StringType()),
     StructField("Symbol",         StringType()),
@@ -27,7 +26,6 @@ META_SCHEMA = StructType([
     StructField("NextShares",     StringType()),
 ])
 
-# ─── Argumenty ──────────────────────────────────
 def cli():
     p = argparse.ArgumentParser()
     p.add_argument("--symbols-meta", required=True)
@@ -38,7 +36,6 @@ def cli():
     p.add_argument("--checkpoint",required=True)
     return p.parse_args()
 
-# ─── Upsert funkcja ─────────────────────────────
 def upsert_to_delta(microBatchDF, batchId, spark, path):
     deltaExists = DeltaTable.isDeltaTable(spark, path)
     if not deltaExists:
@@ -57,7 +54,6 @@ def upsert_to_delta(microBatchDF, batchId, spark, path):
          .whenNotMatchedInsertAll() \
          .execute()
 
-# ─── Główna funkcja ─────────────────────────────
 def main():
     a = cli()
     spark = SparkSession.builder \
@@ -65,7 +61,7 @@ def main():
         .getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
-    # 1) Metadane
+    # Metadane
     meta = (spark.read.option("header","true")
             .schema(META_SCHEMA)
             .csv(a.symbols_meta)
@@ -73,11 +69,12 @@ def main():
             .select("Symbol","SecurityName","MarketCategory")
             .cache())
 
-    # 2) Kafka
+    # Kafka
     raw = (spark.readStream.format("kafka")
            .option("kafka.bootstrap.servers",a.bootstrap)
            .option("subscribe",a.topic)
            .option("startingOffsets","earliest")
+           .option("failOnDataLoss", "false")
            .load())
 
     trades = (raw.selectExpr("CAST(value AS STRING) AS csv")
@@ -93,20 +90,20 @@ def main():
                   col("p")[7].alias("Stock")
               ))
 
-    # 3) Join
+    # Join
     enriched = (trades.join(meta, trades.Stock==meta.Symbol, "left")
                       .select(trades["*"],meta.SecurityName,meta.MarketCategory))
 
-    # 4) Tryby
+    # Tryby
     watermark = "1 second" if a.delay=="A" else "7 days"
     trigger   = 5          if a.delay=="A" else 60
     mode      = "append"   # i tak użyjemy foreachBatch w A
 
-    # 5) Agregacja
+    # Agregacja
     bars = (enriched
             .withWatermark("event_ts", watermark)
             .groupBy(
-                window(col("event_ts"),"5 days","1 day"),
+                window(col("event_ts"), "1 minute", "30 seconds"),
                 col("Stock"), col("SecurityName")
             )
             .agg(
@@ -120,7 +117,7 @@ def main():
                  .withColumn("ratio",(col("max_high")-col("min_low"))/col("max_high"))
                  .filter(col("ratio")>=lit(0.20)))
 
-    # 6) Sink dla realtime_bars
+    # Sink dla realtime_bars
     path_rt = f"{a.output}/realtime_bars"
     if a.delay=="A":
         bars.writeStream \
@@ -137,7 +134,7 @@ def main():
             .trigger(processingTime=f"{trigger} seconds") \
             .start()
 
-    # 7) Sink dla anomalies (append)
+    # Sink dla anomalies (append)
     anomalies.writeStream \
         .format("delta") \
         .option("path", f"{a.output}/anomalies") \
@@ -150,3 +147,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

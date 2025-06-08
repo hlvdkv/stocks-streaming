@@ -2,6 +2,7 @@
 # Użycie:  ./run_spark.sh A        # tryb A
 #          ./run_spark.sh C        # tryb C
 
+
 set -euo pipefail
 DELAY=${1:-A} 
 PACKAGES=org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2,io.delta:delta-core_2.12:2.3.0
