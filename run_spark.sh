@@ -17,4 +17,6 @@ spark-submit \
   --symbols-meta gs://$BUCKET/symbols_valid_meta.csv \
   --output      gs://$BUCKET/stocks/output \
   --checkpoint  gs://$BUCKET/stocks/checkpoints \
+  --window-days 7 \
+  --threshold 0.4 \
   --delay "$DELAY"
