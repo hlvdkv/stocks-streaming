@@ -4,12 +4,12 @@
 
 set -euo pipefail
 DELAY=${1:-A}
+PACKAGES=org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2 
 
 spark-submit \
   --master yarn \
-  --deploy-mode cluster \
-  --name stocks-streaming \
-  --files data/symbols_meta.csv \
-  spark_job_parquet.py \
-    --symbols-meta symbols_meta.csv \
-    --delay "$DELAY"
+  --deploy-mode client \
+  --packages "$PACKAGES" \
+  /home/$USER/stocks-streaming/spark_job_parquet.py \
+  --symbols-meta file:///home/$USER/stocks-streaming/symbols_valid_meta.csv \
+  --delay "$DELAY"
